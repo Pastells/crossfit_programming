@@ -2,6 +2,84 @@ import json
 import os
 
 import streamlit as st
+from bs4 import BeautifulSoup
+
+DAYS = [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+]
+
+
+def extract_workout_html(raw_html, target_date):
+    """Extract clean HTML for a specific workout date"""
+    try:
+        soup = BeautifulSoup(raw_html, "html.parser")
+
+        # Find the article containing the target date
+        articles = soup.find_all("article")
+
+        for article in articles:
+            # Look for the date in the entry title
+            entry_title = article.find("h2", class_="entry-title")
+            if entry_title:
+                title_text = entry_title.get_text().strip()
+                # Check if this article contains our target date
+                if target_date in title_text:
+                    # Found the right article, now extract the entry-content
+                    entry_content = article.find("div", class_="entry-content")
+                    if entry_content:
+                        # Clean and return the content
+                        return clean_workout_html(str(entry_content))
+
+        return None
+
+    except Exception as e:
+        st.error(f"Error extracting workout HTML: {e}")
+        return None
+
+
+def clean_workout_html(html_content):
+    """Clean HTML content while preserving formatting"""
+    if not html_content:
+        return None
+
+    soup = BeautifulSoup(html_content, "html.parser")
+
+    # Remove unwanted elements
+    for tag in soup(["script", "style", "meta", "link", "head", "nav", "header", "footer"]):
+        tag.decompose()
+
+    # Clean up attributes but keep href for links
+    for tag in soup.find_all():
+        if tag.name == "a":
+            # Keep only href attribute for links
+            attrs = dict(tag.attrs)
+            tag.attrs.clear()
+            if "href" in attrs:
+                tag["href"] = attrs["href"]
+                tag["target"] = "_blank"  # Open links in new tab
+        else:
+            # Remove most attributes but keep class for styling
+            allowed_attrs = ["class"] if tag.name in ["strong", "em", "b", "i"] else []
+            attrs = dict(tag.attrs)
+            tag.attrs.clear()
+            for attr in allowed_attrs:
+                if attr in attrs:
+                    tag[attr] = attrs[attr]
+
+    # Remove the outer div.entry-content wrapper but keep its contents
+    if soup.find("div", class_="entry-content"):
+        content_div = soup.find("div", class_="entry-content")
+        content_html = "".join(str(child) for child in content_div.children)
+    else:
+        content_html = str(soup)
+
+    return content_html
 
 
 class PushJerkUI:
@@ -50,9 +128,14 @@ class PushJerkUI:
                 page_data = page
                 break
 
-        if page_data:
-            return page_data["html"]
-        return "<p>Original HTML not found</p>"
+        if not page_data:
+            return None
+
+        # Extract just the workout section using the workout title
+        workout_title = workout.get("title", "")
+        extracted_html = extract_workout_html(page_data["html"], workout_title)
+
+        return extracted_html
 
     def run(self):
         st.set_page_config(page_title="PushJerk Workout Viewer", layout="wide")
@@ -98,12 +181,6 @@ class PushJerkUI:
                     st.success("Cycle name updated!")
                     st.rerun()
 
-            # Cycle info
-            st.write(f"**Cycle ID:** {selected_cycle['cycle_id']}")
-            if selected_cycle.get("total_weeks"):
-                st.write(f"**Total Weeks:** {selected_cycle['total_weeks']}")
-            st.write(f"**Workouts:** {len(selected_cycle['workouts'])}")
-
         # Get workouts for selected cycle
         cycle_workout_indices = selected_cycle["workouts"]
         cycle_workouts = []
@@ -112,10 +189,6 @@ class PushJerkUI:
             if i < len(self.workouts):
                 workout = self.workouts[i]
                 cycle_workouts.append(workout)
-            else:
-                st.write(f"Debug - Index {i} out of range")
-
-        # cycle_workouts = [self.workouts[i] for i in cycle_workout_indices if i < len(self.workouts)]
 
         if not cycle_workouts:
             st.error("No workouts found for this cycle")
@@ -182,40 +255,35 @@ class PushJerkUI:
         st.divider()
 
         # Workout header
-        col1, col2, col3 = st.columns([2, 1, 1])
+        col1, col2 = st.columns([3, 1])
         with col1:
             st.header(selected_workout.get("title", "Untitled Workout"))
         with col2:
             st.metric("Week", selected_week)
-        with col3:
-            st.metric("Exercise Links", len(selected_workout.get("exercise_links", [])))
 
-        # Display options
-        display_mode = st.radio(
-            "Display Mode:", ["Processed Content", "Original HTML"], horizontal=True
-        )
+        workout_html = self.get_workout_html(selected_workout)
 
-        if display_mode == "Processed Content":
-            st.subheader("Workout Content")
-
-            # Exercise links
-            exercise_links = selected_workout.get("exercise_links", [])
-            if exercise_links:
-                st.subheader("Exercise Links")
-                for link in exercise_links:
-                    st.markdown(f"- [{link['text']}]({link['url']})")
-
-            # Content
-            content = selected_workout.get("content", "")
-            if content:
-                st.text_area("Workout Details:", content, height=300, disabled=True)
-
-        if display_mode == "Original HTML":
-            st.subheader("Original HTML")
-            workout_html = self.get_workout_html(selected_workout)
-
-            # Render HTML
-            st.components.v1.html(workout_html, height=600, scrolling=True)
+        if workout_html:
+            # Display in a styled container
+            st.markdown(
+                f"""
+            <div style="
+                background-color: #f8f9fa;
+                border: 1px solid #e9ecef;
+                border-radius: 8px;
+                padding: 20px;
+                margin: 10px 0;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                line-height: 1.6;
+                color: #333;
+            ">
+                {workout_html}
+            </div>
+            """,
+                unsafe_allow_html=True,
+            )
+        else:
+            st.info("Original formatted content not available for this workout.")
 
 
 def main():
