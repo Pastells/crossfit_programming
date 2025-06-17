@@ -290,35 +290,35 @@ class DataReprocessor:
         # Save ALL cycles (including short ones) for random selection BEFORE filtering
         all_cycles = self.cycles.copy()  # Keep original cycles for random selection
 
-        # Create separate lists for random selection from ALL cycles
-        all_weeks = []
-        all_2week_sequences = []
+        # Create separate lists for random selection from SHORT cycles only
+        all_weeks = []  # Only single weeks (from 1-week cycles)
+        all_2week_sequences = []  # Only complete 2-week cycles
 
         for cycle in all_cycles:
             weeks = cycle.get("weeks", [])
             cycle_name = cycle.get("name", f"Cycle {cycle.get('cycle_id', 'Unknown')}")
+            week_count = len(weeks)
 
-            for week in weeks:
-                # Add individual weeks for random selection
+            # Only add single weeks from 1-week cycles to all_weeks
+            if week_count == 1:
+                week = weeks[0]
                 week_data = {
                     "cycle_name": cycle_name,
                     "week_number": week["week_number"],
                     "workouts": week["workouts"],
-                    "total_weeks_in_cycle": len(weeks),
+                    "total_weeks_in_cycle": week_count,
                 }
                 all_weeks.append(week_data)
 
-                # Create 2-week sequences
-                week_index = week["week_number"] - 1
-                if week_index < len(weeks) - 1:  # If there's a next week
-                    next_week = weeks[week_index + 1]
-                    two_week_data = {
-                        "cycle_name": cycle_name,
-                        "week_numbers": [week["week_number"], next_week["week_number"]],
-                        "weeks": [week, next_week],
-                        "total_weeks_in_cycle": len(weeks),
-                    }
-                    all_2week_sequences.append(two_week_data)
+            # Only add complete 2-week cycles to all_2week_sequences
+            elif week_count == 2:
+                two_week_data = {
+                    "cycle_name": cycle_name,
+                    "week_numbers": [weeks[0]["week_number"], weeks[1]["week_number"]],
+                    "weeks": [weeks[0], weeks[1]],
+                    "total_weeks_in_cycle": week_count,
+                }
+                all_2week_sequences.append(two_week_data)
 
         # Now filter self.cycles to only contain cycles with more than 2 weeks
         self.cycles = [cycle for cycle in self.cycles if len(cycle.get("weeks", [])) > 2]
