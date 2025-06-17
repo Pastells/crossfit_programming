@@ -1,5 +1,6 @@
 import json
 import os
+import re
 
 import streamlit as st
 from bs4 import BeautifulSoup
@@ -43,6 +44,27 @@ def extract_workout_html(raw_html, target_date):
         return None
 
 
+def convert_pounds_to_kg(match):
+    weights = match.group(1)  # Get the weight numbers part (e.g., "53/35")
+    weight_parts = weights.split("/")
+    converted_parts = []
+
+    for weight in weight_parts:
+        try:
+            lb_value = float(weight.strip())
+            kg_value = round(lb_value * 0.453592 / 0.5) * 0.5
+
+            # Remove .0 if it's a whole number
+            if kg_value.is_integer():
+                converted_parts.append(str(int(kg_value)))
+            else:
+                converted_parts.append(str(kg_value))
+        except ValueError:
+            converted_parts.append(weight)  # Keep original if conversion fails
+
+    return "/".join(converted_parts) + "kg"
+
+
 def clean_workout_html(html_content):
     """Clean HTML content while preserving formatting"""
     if not html_content:
@@ -78,6 +100,10 @@ def clean_workout_html(html_content):
         content_html = "".join(str(child) for child in content_div.children)
     else:
         content_html = str(soup)
+
+    # Regex pattern to match weight formats like "53/35#", "45#", etc.
+    weight_pattern = r"(\d+(?:\.\d+)?(?:/\d+(?:\.\d+)?)*)#"
+    content_html = re.sub(weight_pattern, convert_pounds_to_kg, content_html)
 
     return content_html
 
@@ -154,6 +180,8 @@ class PushJerkUI:
             cycle_options = {}
             for cycle in self.cycles:
                 cycle_name = cycle.get("name", f"Cycle {cycle['cycle_id']}")
+                week_count = len(cycle["weeks"])
+                cycle_name = f"{cycle_name} ({week_count} weeks)"
                 cycle_options[cycle_name] = cycle
 
             selected_cycle_name = st.selectbox("Select Cycle:", list(cycle_options.keys())[::-1])
@@ -255,10 +283,12 @@ class PushJerkUI:
         st.divider()
 
         # Workout header
-        col1, col2 = st.columns([3, 1])
+        col1, col2, col3 = st.columns([3, 1, 1])
         with col1:
             st.header(selected_workout.get("title", "Untitled Workout"))
         with col2:
+            st.metric("Cycle", selected_cycle["cycle_id"])
+        with col3:
             st.metric("Week", selected_week)
 
         workout_html = self.get_workout_html(selected_workout)
