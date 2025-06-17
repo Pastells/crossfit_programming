@@ -8,15 +8,15 @@ from bs4 import BeautifulSoup
 
 from backup_names import backup_cycles
 
-DAYS = [
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-    "Sunday",
-]
+DAYS = {
+    "mon": "Monday",
+    "tue": "Tuesday",
+    "wed": "Wednesday",
+    "thu": "Thursday",
+    "fri": "Friday",
+    "sat": "Saturday",
+    "sun": "Sunday",
+}
 
 SESSION_FILE = "app_session.json"
 
@@ -208,18 +208,38 @@ class PushJerkUI:
         extracted_html = extract_workout_html(page_data["html"], workout_title)
         return extracted_html
 
+    def display_week_workouts(self, week_data):
+        """Display workouts in a week with previews"""
+        workouts = week_data.get("workouts", [])
+
+        workouts_by_day = {}
+
+        for workout in workouts:
+            day = workout.get("day", "unknown")
+            if day not in workouts_by_day:
+                workouts_by_day[day] = []
+            workouts_by_day[day].append(workout)
+
+        # Display workouts in day order
+        for day in DAYS.keys():
+            if day in workouts_by_day:
+                day_workouts = workouts_by_day[day]
+                for workout in day_workouts:
+                    preview = workout.get("preview", "")
+                    st.write(f"**{DAYS[day]}**: {preview}")
+
     def display_workout_content(self, workout, cycle_info=None, week_info=None):
         """Display workout content with header"""
         # Workout header
-        col1, col2, col3 = st.columns([3, 1, 1])
-        with col1:
-            st.header(workout.get("title", "Untitled Workout"))
-        with col2:
-            if cycle_info:
-                st.metric("Cycle", cycle_info)
-        with col3:
-            if week_info:
-                st.metric("Week", week_info)
+        # col1, col2, col3 = st.columns([3, 1, 1])
+        # with col1:
+        #     st.header(workout.get("title", "Untitled Workout"))
+        # with col2:
+        #     if cycle_info:
+        #         st.metric("Cycle", cycle_info)
+        # with col3:
+        #     if week_info:
+        #         st.metric("Week", week_info)
 
         workout_html = self.get_workout_html(workout)
 
@@ -282,7 +302,6 @@ class PushJerkUI:
             )
             selected_cycle = cycle_options[selected_cycle_name]
 
-            st.write(f"**Cycle ID:** {selected_cycle['cycle_id']}")
             if selected_cycle.get("total_weeks"):
                 st.write(f"**Total Weeks:** {selected_cycle['total_weeks']}")
             st.write(f"**Workouts:** {len(selected_cycle['workouts'])}")
@@ -319,11 +338,10 @@ class PushJerkUI:
             st.error("No weeks found for this cycle")
             return
 
-        # Week selection
-        col1, col2 = st.columns([1, 3])
+        col1, _, col2 = st.columns([1, 0.2, 2])
 
         with col1:
-            st.subheader("Weeks")
+            # Week selection
             week_numbers = sorted(weeks.keys())
 
             # Try to restore last selected week
@@ -334,22 +352,22 @@ class PushJerkUI:
                 except:
                     pass
 
-            selected_week = st.radio(
+            selected_week = st.selectbox(
                 "Select Week:",
                 week_numbers,
-                format_func=lambda x: f"Week {x} ({len(weeks[x])} workouts)",
+                format_func=lambda x: f"Week {x}",
                 index=default_week_index,
             )
 
         with col2:
-            st.subheader(f"Week {selected_week} Workouts")
-
             # Workout selection
             week_workouts = weeks[selected_week]
             workout_options = []
             for i, workout in enumerate(week_workouts):
-                title = workout.get("title", f"Workout {i+1}")
-                workout_options.append(f"{title}")
+                day = workout.get("day", f"Workout {i+1}")
+                preview = workout.get("preview", "")
+                workout_options.append(f"{DAYS[day]}: {preview}")
+                # workout_options.append(f"{DAYS[day]}")
 
             selected_workout_idx = st.selectbox(
                 "Select Workout:",
@@ -359,13 +377,17 @@ class PushJerkUI:
 
             selected_workout = week_workouts[selected_workout_idx]
 
+            # week_display_data = {
+            #     "week_number": selected_week,
+            #     "workouts": week_workouts,
+            # }
+            # self.display_week_workouts(week_display_data)
+
         # Save current selection
         update_current_selection(
             "cycle", cycle_id=selected_cycle["cycle_id"], week_number=selected_week
         )
 
-        # Display workout
-        st.divider()
         self.display_workout_content(
             selected_workout, cycle_info=selected_cycle["cycle_id"], week_info=selected_week
         )
@@ -401,7 +423,7 @@ class PushJerkUI:
 
         col1, col2 = st.columns([3, 1])
         with col1:
-            st.subheader(f"Random Week: {week['cycle_name']} - Week {week['week_number']}")
+            st.subheader(f"Random Week: {week['cycle_name']}")
         with col2:
             if st.button("🎲 Get Another Random Week", use_container_width=True):
                 new_week = random.choice(self.random_weeks)
@@ -474,9 +496,7 @@ class PushJerkUI:
         col1, col2 = st.columns([3, 1])
         with col1:
             week_nums = two_week["week_numbers"]
-            st.subheader(
-                f"Random 2 Weeks: {two_week['cycle_name']} - Weeks {week_nums[0]}-{week_nums[1]}"
-            )
+            st.subheader(f"Random 2 Weeks: {two_week['cycle_name']}")
         with col2:
             if st.button("🎲 Get Another Random 2 Weeks", use_container_width=True):
                 new_two_week = random.choice(self.random_2weeks)

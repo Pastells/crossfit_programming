@@ -8,20 +8,54 @@ from tqdm import tqdm
 from backup_names import restore_cycles
 
 
-def load_cycle_names():
-    """Load custom cycle names from storage"""
-    try:
-        with open("data/cycle_names.json", "r") as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return {}
+def extract_workout_preview(workout_content) -> str:
+    """Extract workout preview from keywords that start lines"""
 
+    # Target keywords we want to highlight
+    target_keywords = {"strength", "conditioning", "core", "weightlifting"}
 
-def save_cycle_names(cycle_names):
-    """Save custom cycle names to storage"""
-    os.makedirs("data", exist_ok=True)
-    with open("data/cycle_names.json", "w") as f:
-        json.dump(cycle_names, f, indent=2)
+    # All keywords found that start lines
+    all_line_keywords = []
+
+    # Categorized keywords
+    preview_sections = []
+
+    # Use the plain text content
+    content_to_parse = workout_content if workout_content else ""
+
+    if content_to_parse:
+        lines = content_to_parse.split("\n")
+
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+
+            line_lower = line.lower()
+
+            # Check if line starts with any target keyword
+            for keyword in target_keywords:
+                if line_lower.startswith(keyword.lower()):
+                    # Check if it's essentially just the keyword (possibly with part number)
+                    # Pattern: keyword possibly followed by optional whitespace and (part X)
+                    pattern = rf"^{re.escape(keyword.lower())}( \(part [1-9]\))?$"
+                    if re.match(pattern, line_lower):
+                        all_line_keywords.append(line)
+                        preview_sections.append(keyword)
+                        break
+
+    if not preview_sections:
+        preview = "No preview found"
+    else:
+        preview_sections = list(set(preview_sections))
+        preview = (
+            ", ".join(preview_sections[:-1]) + " and " + preview_sections[-1] + "."
+            if len(preview_sections) > 1
+            else preview_sections[0]
+        )
+        preview = preview.strip().capitalize()
+
+    return preview
 
 
 class DataReprocessor:
@@ -78,6 +112,7 @@ class DataReprocessor:
 
         # Extract content
         content = soup.get_text().strip()
+        preview = extract_workout_preview(content)
 
         workout = {
             "title": title,
@@ -85,6 +120,7 @@ class DataReprocessor:
             "html": workout_html,
             "source_page": source_page,
             "day": self.get_day_from_title(title),
+            "preview": preview,
         }
 
         return workout
