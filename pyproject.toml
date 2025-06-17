@@ -1,0 +1,13 @@
+[project]
+name = "crossfit_programming"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "beautifulsoup4>=4.13.4",
+    "pandas>=2.3.0",
+    "requests>=2.32.4",
+    "streamlit>=1.45.1",
+    "tqdm>=4.67.1",
+]
