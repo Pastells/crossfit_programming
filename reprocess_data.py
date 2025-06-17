@@ -1,10 +1,11 @@
-# reprocess_data.py
 import json
 import os
 import re
 
 from bs4 import BeautifulSoup
 from tqdm import tqdm
+
+from backup_names import restore_cycles
 
 
 def load_cycle_names():
@@ -281,21 +282,21 @@ class DataReprocessor:
         print(f"Total cycles: {len(self.cycles)}")
 
     def filter_cycles_by_weeks(self):
-        """Filter cycles to only include those with more than 2 weeks"""
-        self.cycles = [cycle for cycle in self.cycles if len(cycle.get("weeks", [])) > 2]
+        """Filter cycles to only include those with more than 2 weeks, and create random selection data"""
 
-        # Also create separate lists for random selection
+        # First, let's see what we have before filtering
+        print(f"Total cycles before filtering: {len(self.cycles)}")
+
+        # Save ALL cycles (including short ones) for random selection BEFORE filtering
+        all_cycles = self.cycles.copy()  # Keep original cycles for random selection
+
+        # Create separate lists for random selection from ALL cycles
         all_weeks = []
         all_2week_sequences = []
 
-        # Process all cycles (including short ones) to extract weeks
-        cycles_file = os.path.join("data", "pushjerk_cycles.json")
-        with open(cycles_file, "r") as f:
-            all_cycles = json.load(f)
-
         for cycle in all_cycles:
             weeks = cycle.get("weeks", [])
-            cycle_name = cycle.get("name", "Unknown")
+            cycle_name = cycle.get("name", f"Cycle {cycle.get('cycle_id', 'Unknown')}")
 
             for week in weeks:
                 # Add individual weeks for random selection
@@ -319,21 +320,30 @@ class DataReprocessor:
                     }
                     all_2week_sequences.append(two_week_data)
 
+        # Now filter self.cycles to only contain cycles with more than 2 weeks
+        self.cycles = [cycle for cycle in self.cycles if len(cycle.get("weeks", [])) > 2]
+        print(f"Cycles with 3+ weeks after filtering: {len(self.cycles)}")
+
         # Save random selections data
-        with open("random_weeks.json", "w") as f:
+        with open("data/random_weeks.json", "w") as f:
             json.dump(all_weeks, f, indent=2)
 
-        with open("random_2weeks.json", "w") as f:
+        with open("data/random_2weeks.json", "w") as f:
             json.dump(all_2week_sequences, f, indent=2)
+
+        print(
+            f"Saved {len(all_weeks)} random weeks and {len(all_2week_sequences)} random 2-week sequences"
+        )
 
 
 def main():
     reprocessor = DataReprocessor()
     reprocessor.load_raw_pages()
     reprocessor.reprocess_all_data()
+    reprocessor.filter_cycles_by_weeks()
     reprocessor.save_reprocessed_data()
     reprocessor.print_summary()
-    reprocessor.filter_cycles_by_weeks()
+    restore_cycles()
 
 
 if __name__ == "__main__":
