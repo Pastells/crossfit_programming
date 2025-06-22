@@ -18,7 +18,25 @@ DAYS = {
     "sun": "Sunday",
 }
 
-SESSION_FILE = "app_session.json"
+SESSION_FILE = "data/app_session.json"
+NOTES_FILES = {
+    "cycle": "data/cycle_notes.json",
+    "workout": "data/workout_notes.json",
+}
+
+
+def load_notes(which="cycle"):
+    notes_file = NOTES_FILES[which]
+    if os.path.exists(notes_file):
+        with open(notes_file, "r") as f:
+            return json.load(f)
+    return {}
+
+
+def save_notes(notes, which="cycle"):
+    notes_file = NOTES_FILES[which]
+    with open(notes_file, "w") as f:
+        json.dump(notes, f, indent=2)
 
 
 def load_session_state():
@@ -262,7 +280,7 @@ class PushJerkUI:
                 unsafe_allow_html=True,
             )
         else:
-            st.info("Original formatted content not available for this workout.")
+            st.info("Original content not available for this workout.")
 
     def show_cycle_selection(self):
         """Display cycle selection interface"""
@@ -321,7 +339,19 @@ class PushJerkUI:
                     self.save_cycles()
                     backup_cycles()
                     st.success("Cycle name updated!")
-                    st.rerun()
+
+            # Cycle notes
+            cycle_notes_data = load_notes()
+            cycle_id = str(selected_cycle["cycle_id"])
+            existing_note = cycle_notes_data.get(cycle_id, "")
+
+            note_input = st.text_area(
+                "**Cycle Notes:**", value=existing_note, key=f"cycle_notes_{cycle_id}"
+            )
+            if st.button("Save Notes", key=f"save_cycle_notes_{cycle_id}"):
+                cycle_notes_data[cycle_id] = note_input
+                save_notes(cycle_notes_data)
+                st.success("Notes saved!")
 
         # Organize workouts by weeks using the cycle's week structure
         weeks = {}
@@ -391,6 +421,19 @@ class PushJerkUI:
         self.display_workout_content(
             selected_workout, cycle_info=selected_cycle["cycle_id"], week_info=selected_week
         )
+
+        # Workout notes
+        workout_notes_data = load_notes("workout")
+        workout_id = str(selected_workout["title"])
+        existing_note = workout_notes_data.get(workout_id, "")
+
+        note_input = st.text_area(
+            "**Workout Notes:**", value=existing_note, key=f"workout_notes_{workout_id}"
+        )
+        if st.button("Save Notes", key=f"save_workout_notes_{workout_id}"):
+            workout_notes_data[workout_id] = note_input
+            save_notes(workout_notes_data, "workout")
+            st.success("Notes saved!")
 
     def show_random_week(self):
         """Display random week interface"""
