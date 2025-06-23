@@ -5,6 +5,7 @@ import re
 
 import streamlit as st
 from bs4 import BeautifulSoup
+from thefuzz import process
 
 from backup_names import backup_cycles
 
@@ -591,6 +592,19 @@ class PushJerkUI:
             "random_2week", two_week_id=st.session_state.current_random_2week_id
         )
 
+    def show_search(self):
+        """Display search"""
+        search_input = st.text_input("**Search:**", key="search")
+        if search_input:
+            contents = [w["content"] for w in self.workouts]
+            choices = process.extract(search_input, contents, limit=20)
+            idx = [contents.index(choice[0]) for choice in choices if choice[1] > 50]
+            if idx:
+                selected_idx = st.selectbox("Select Workout:", idx)
+                self.display_workout_content(self.workouts[selected_idx])
+            else:
+                st.write("No results found.")
+
     def run(self):
         st.set_page_config(page_title="PushJerk Workout Viewer", layout="wide")
 
@@ -602,7 +616,7 @@ class PushJerkUI:
             st.session_state.selection_type = saved_state.get("last_visited_type", "cycle")
 
         # Selection buttons
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns(4)
 
         with col1:
             if st.button("📚 Training Cycles", use_container_width=True):
@@ -625,6 +639,12 @@ class PushJerkUI:
                     del st.session_state.current_random_2week
                 st.rerun()
 
+        with col4:
+            if st.button("🔍 Search Workout", use_container_width=True):
+                st.session_state.selection_type = "search"
+                # Clear current selection to force new random selection
+                st.rerun()
+
         st.divider()
 
         # Display based on selection type
@@ -634,6 +654,8 @@ class PushJerkUI:
             self.show_random_week()
         elif st.session_state.selection_type == "random_2week":
             self.show_random_2weeks()
+        elif st.session_state.selection_type == "search":
+            self.show_search()
 
 
 def main():

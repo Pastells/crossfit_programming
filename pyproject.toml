@@ -9,5 +9,6 @@ dependencies = [
     "pandas>=2.3.0",
     "requests>=2.32.4",
     "streamlit>=1.45.1",
+    "thefuzz>=0.22.1",
     "tqdm>=4.67.1",
 ]
