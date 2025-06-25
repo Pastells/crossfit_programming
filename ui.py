@@ -4,6 +4,7 @@ import random
 import re
 
 import streamlit as st
+import streamlit.components.v1 as components
 from bs4 import BeautifulSoup
 from thefuzz import process
 
@@ -262,12 +263,34 @@ class PushJerkUI:
         #     if week_info:
         #         st.metric("Week", week_info)
 
+        url_date = workout["title"].lower().replace(", ", "-").replace(" ", "-")
+        st.write(f"Original [link](https://pushjerk.com/{url_date}/)")
+
         workout_html = self.get_workout_html(workout)
 
         if workout_html:
-            st.markdown(
-                f"""
-            <div style="
+            # # Option 1: use markdown to display workout content
+            # st.markdown(
+            #     f"""
+            # <div id="workout-container" style="
+            #     background-color: #f8f9fa;
+            #     border: 1px solid #e9ecef;
+            #     border-radius: 8px;
+            #     padding: 20px;
+            #     margin: 10px 0;
+            #     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            #     line-height: 1.6;
+            #     color: #333;
+            # ">
+            #     {workout_html}
+            # </div>
+            # """,
+            #     unsafe_allow_html=True,
+            # )
+
+            # Option 2: use html to add copy button
+            full_html = f"""
+            <div id="workout-container" style="
                 background-color: #f8f9fa;
                 border: 1px solid #e9ecef;
                 border-radius: 8px;
@@ -277,11 +300,53 @@ class PushJerkUI:
                 line-height: 1.6;
                 color: #333;
             ">
+                <style>
+                    a {{
+                        color: #1f77b4;
+                        text-decoration: underline;
+                    }}
+                </style>
                 {workout_html}
             </div>
-            """,
-                unsafe_allow_html=True,
-            )
+            <br>
+            <button style="
+                padding: 8px 16px;
+                font-size: 16px;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+            " onclick="copyToClipboard()">📋 Copy</button>
+
+            <script>
+            function copyToClipboard() {{
+                const el = document.getElementById('workout-container');
+                if (!el) {{
+                    alert('Workout content not found.');
+                    return;
+                }}
+
+                const selection = window.getSelection();
+                const range = document.createRange();
+                range.selectNodeContents(el);
+                selection.removeAllRanges();
+                selection.addRange(range);
+
+                try {{
+                    const successful = document.execCommand('copy');
+                    if (successful) {{
+                        alert('Workout copied to clipboard!');
+                    }} else {{
+                        alert('Copy command was unsuccessful');
+                    }}
+                }} catch (err) {{
+                    alert('Error while copying: ' + err);
+                }}
+
+                selection.removeAllRanges();
+            }}
+            </script>
+            """
+            components.html(full_html, height=1300, scrolling=True)
 
             # Workout notes
             workout_notes_data = self.workout_notes_data
