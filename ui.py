@@ -291,6 +291,7 @@ class PushJerkUI:
             # Option 2: use html to add copy button
             full_html = f"""
             <div id="workout-container" style="
+                position: relative;
                 background-color: #f8f9fa;
                 border: 1px solid #e9ecef;
                 border-radius: 8px;
@@ -300,28 +301,37 @@ class PushJerkUI:
                 line-height: 1.6;
                 color: #333;
             ">
+                <button onclick="copyToClipboard()" style="
+                    position: absolute;
+                    top: 10px;
+                    right: 10px;
+                    background-color: #f8f9fa;
+                    color: black;
+                    padding: 8px 16px;
+                    font-size: 16px;
+                    border: none;
+                    border-radius: 4px;
+                    cursor: pointer;
+                ">📋</button>
+
                 <style>
                     a {{
                         color: #1f77b4;
                         text-decoration: underline;
                     }}
                 </style>
+
                 {workout_html}
             </div>
-            <br>
-            <button style="
-                padding: 8px 16px;
-                font-size: 16px;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-            " onclick="copyToClipboard()">📋 Copy</button>
 
             <script>
             function copyToClipboard() {{
                 const el = document.getElementById('workout-container');
+                const btn = document.querySelector('button[onclick="copyToClipboard()"]');
+
                 if (!el) {{
-                    alert('Workout content not found.');
+                    btn.style.backgroundColor = '#e74c3c';
+                    setTimeout(() => {{ btn.style.backgroundColor = '#f8f9fa'; }}, 1500);
                     return;
                 }}
 
@@ -334,15 +344,18 @@ class PushJerkUI:
                 try {{
                     const successful = document.execCommand('copy');
                     if (successful) {{
-                        alert('Workout copied to clipboard!');
+                        btn.style.backgroundColor = '#aaaaaa';
                     }} else {{
-                        alert('Copy command was unsuccessful');
+                        btn.style.backgroundColor = '#e74c3c';
                     }}
                 }} catch (err) {{
-                    alert('Error while copying: ' + err);
+                    btn.style.backgroundColor = '#e74c3c';
                 }}
 
                 selection.removeAllRanges();
+                setTimeout(() => {{
+                    btn.style.backgroundColor = '#f8f9fa';
+                }}, 1500);
             }}
             </script>
             """
